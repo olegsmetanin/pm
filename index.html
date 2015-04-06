@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1, maximum-scale=1"/>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+	<title>Structured way</title>
+	<link rel="shortcut icon" href="favicon.ico">
+	<link rel="stylesheet" href="./progrecss.css"/>
+
+	<style type="text/css">
+		body {
+			margin: 0;
+            overflow-y: scroll;/* !important;*/
+		}
+
+		body.splashscreen {
+			background-color: #dd5200;
+		}
+
+        body #app {
+            display: block;
+        }
+
+        body.splashscreen #app {
+            display: none;
+        }
+
+		body.splashscreen .logo {
+			display: block;
+		}
+
+		@media (max-width: 980px) {
+			.navbar-text.pull-right {
+				float: none;
+				padding-left: 5px;
+				padding-right: 5px;
+			}
+		}
+
+		.logo {
+			position: fixed;
+			text-align: center;
+			top: 50%;
+			width: 100%;
+			display:none;
+		}
+
+		.logo img {
+			position: relative;
+			top: -102px;
+		}
+
+        .modal-open .logo img {
+            margin-right: 15px;
+        }
+	</style>
+</head>
+
+<body class="contrast-sw fixed-header progrecss green staggered splashscreen" data-progrecss="0">
+<!--this logo will be visible on startup and between state changes (when long resolve in states call api)-->
+<div class="logo">
+    <img src="./mainicon.png"/>
+</div>
+<div id="app" ui-view>
+    <div id="reconnect" style="display: none;">You are offline.<br/> Try to
+        <button>reconnect</button>
+    </div>
+</div>
+
+<script type="text/javascript">
+	//workaround for fb 'behavior'
+	//http://stackoverflow.com/questions/7131909/facebook-callback-appends-to-return-url
+	if (window.location.hash && window.location.hash == '#_=_') {
+		if (window.history && history.pushState) {
+			window.history.pushState('', document.title, window.location.pathname);
+		} else {
+			// Prevent scrolling by storing the page's current scroll offset
+			var scroll = {
+				top: document.body.scrollTop,
+				left: document.body.scrollLeft
+			};
+			window.location.hash = '';
+			// Restore the scroll offset, should be flicker free
+			document.body.scrollTop = scroll.top;
+			document.body.scrollLeft = scroll.left;
+		}
+	}
+</script>
+
+<script type="text/javascript" src="require.js"></script>
+
+<script type="text/javascript">
+	(function (require) {
+        var coreVersion = 'core-0.1.11';
+        var apiRoot = 'https://api.structuredway.com/';
+        var notificationRoot = 'https://api.structuredway.com:443/';
+//        var apiRoot = 'http://localhost/apinet/';
+//        var notificationRoot = 'http://localhost:36653';
+		require.config({
+			waitSeconds: 15,
+			baseUrl: './',
+			packages: [coreVersion, 'core-0.1.6', 'core-0.1.7', 'core-0.1.8', 'core-0.1.9', 'core-0.1.10',
+                'tasks-0.1.7', 'tasks-0.1.8', 'tasks-0.1.9', 'tasks-0.1.10',
+                'pas-0.1.7', 'pas-0.1.8', 'pas-0.1.9', 'pas-0.1.10', 'pas-0.1.11', 'pas-0.1.12'],
+			config: {
+				'core/services/i18n': {
+					globalRequire: require,
+					release: true
+				},
+				'core/services/apinetService': {
+					useEasyXDM: true,
+                    apiRoot: apiRoot,
+                    notificationRoot: notificationRoot
+				}
+			}
+		});
+
+        var resources = {};
+//		resources[coreVersion + '/core/module.js'] = 0;
+//        resources[coreVersion + '/core/themes/flatty/light-theme.css'] = 0;
+        resources['core/module.js'] = 0;
+        resources['core/themes/flatty/light-theme.css'] = 0;
+		var resourcesCount = 2;
+		var loadedCount = 0;
+		var currentPercents = 0;
+
+        function init() {
+            //try to find project in url
+            var arr = /#!\/project\/(\w+)?/g.exec(window.location.href);
+            if (arr && arr.length == 2) {
+                var project = arr[1];
+
+                var bootstrapModule = function(ver) {
+                    require([ver], function () {
+                        //bootstrap in main.js
+                    });
+                };
+                var goToProjects = function() {
+                    window.location.replace('#!/projects/listview');
+                    window.location.reload();
+                };
+
+                //view, if project info already stored for us
+                var storedProjectInfo = window.localStorage.getItem('ago.current_project');
+                if (storedProjectInfo) {
+                    storedProjectInfo = window.JSON.parse(storedProjectInfo);
+                }
+                var needReload = storedProjectInfo == null ||
+                    storedProjectInfo.project !== project ||
+                    (new Date().getTime() - new Date(storedProjectInfo.timestamp).getTime()) > (1000 * 5 /*5s*/);
+                if (!needReload) {
+                    bootstrapModule(storedProjectInfo.version);
+                    return;
+                }
+
+                //find info about project in api
+                var req = new XMLHttpRequest();
+                req.addEventListener('load', function() {
+                    if (req.status === 200) {
+                        var data = window.JSON.parse(req.responseText);
+                        bootstrapModule(data.Version);
+                    } else if (req.status === 401) {
+                        goToProjects();
+                    }
+                }, false);
+                req.addEventListener('error', function() {
+                    goToProjects();
+                });
+                var params = { project: project };
+
+                req.withCredentials = true;
+                req.open('POST', apiRoot + 'api/core/projects/projectInfo', true);
+                req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                req.send('project=' + project);
+                return;
+            }
+
+            require([coreVersion], function () {
+                //bootstrap in main.js
+            });
+        };
+
+//		var loadResourceFn = function (resourceName) {
+//			var scriptName = window.location.origin ||
+//					(window.location.protocol + "//" + window.location.hostname
+//							+ (window.location.port ? ':' + window.location.port : ''));
+//
+//			if (window.location.pathname.lastIndexOf('/', 0) !== 0) {
+//				scriptName = scriptName + '/';
+//			}
+//			scriptName = scriptName + window.location.pathname;
+//			//if (resourceName.lastIndexOf('/', 0) !== 0)
+//			//	scriptName = scriptName + '/';
+//			scriptName = scriptName + resourceName;
+//
+//			var completeFn = function () {
+//				loadedCount = loadedCount + 1;
+//				if (loadedCount < resourcesCount) {
+//					return;
+//				}
+//
+//				var timeoutFn = function () {
+//					if (currentPercents >= 100) {
+//						return;
+//					}
+//
+//					currentPercents = currentPercents + 1;
+//					document.body.setAttribute('data-progrecss', currentPercents.toString());
+//					window.setTimeout(timeoutFn, 600);
+//				};
+//
+//				window.setTimeout(timeoutFn, 600);
+//
+//				init();
+//			};
+//
+//			var request = new XMLHttpRequest();
+//
+//			request.addEventListener('progress', function (event) {
+//				if (!event.lengthComputable) {
+//					return;
+//				}
+//
+//				var newPercents = Math.round(event.loaded * 80 / event.total);
+//				if (resources[resourceName] !== newPercents) {
+//					resources[resourceName] = newPercents;
+//
+//					var total = 0;
+//					for (var key in resources) {
+//						if (!resources.hasOwnProperty(key)) {
+//							continue;
+//						}
+//
+//						total = total + resources[key];
+//					}
+//
+//					currentPercents = Math.round(total / resourcesCount);
+//					document.body.setAttribute('data-progrecss', currentPercents.toString());
+//				}
+//			}, false);
+//			request.addEventListener('load', completeFn, false);
+//			request.addEventListener('error', completeFn, false);
+//			request.addEventListener('abort', completeFn, false);
+//
+//			request.open('GET', scriptName, true);
+//			request.send(null);
+//		};
+
+//		if (typeof(window.ActiveXObject) === 'undefined') {
+//			for (var key in resources) {
+//				if (!resources.hasOwnProperty(key)) {
+//					continue;
+//				}
+//
+//				loadResourceFn(key);
+//			}
+//		}
+//		else {
+            document.addEventListener('DOMContentLoaded', init, false);
+//		}
+	})(requirejs);
+</script>
+</body>
+
+</html>

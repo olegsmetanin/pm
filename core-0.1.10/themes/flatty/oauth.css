@@ -1,0 +1,42 @@
+button.auth-container .oauthimg {
+    display: block;
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+}
+
+.facebook-auth, .facebook-auth:hover  {
+    background-color: #3B5998 !important;
+}
+
+.facebook-img {
+    background: url('./images/oauth/facebook.svg');
+}
+
+.twitter-auth, .twitter-auth:hover, .twitter-auth:focus {
+    background-color: #4099FF !important;
+}
+
+.twitter-img {
+    background: url('./images/oauth/twitter.svg');
+}
+
+.google-auth, .google-auth:hover, .google-auth:focus {
+    background-color: #D34836 !important;
+}
+
+.google-img {
+    background: url('./images/oauth/google.svg');
+}
+
+.sw-auth, .sw-auth:hover, .sw-auth:focus {
+    background-color: #dd5200 !important;
+}
+
+.sw-img {
+    background: url('./images/oauth/sw.svg');
+}
+
+.sw-demo {
+    color:#fff;
+}
